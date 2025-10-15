@@ -1,5 +1,5 @@
-#include <stdio.h>      /* printf, scanf, puts, NULL */
-#include <stdlib.h>     /* srand, rand */
+#include <stdio.h>
+#include <stdlib.h>
 #include <time.h> 
 #include <FastLED.h>
 
@@ -14,25 +14,39 @@
 
 const byte BTN_PINS[NUM_LEDS] = {7, 6};
 
-const int BASIC_SLEEP_TIME = 2000;
-const int SLEEP_TIME_RANGE = 2000;
+const int BASIC_SLEEP_TIME = 3000;
+const int SLEEP_TIME_RANGE = 3000;
+const int AWAIT_TIME = 1000;
 
 CRGB leds[NUM_LEDS];
 bool bIsOpen[NUM_LEDS];
+bool bIsAwait[NUM_LEDS];
+bool bCanClose[NUM_LEDS];
 bool bIsPressed = false;
+long coolDownLED[NUM_LEDS];
 
-long coolDown = 0;
+long coolDownRed = 0;
+long coolDownBlue = 0;
 unsigned long lastTime = 0;
 unsigned long deltaTime = 0;
 
+enum colorLED{
+  RED,
+  BLUE
+};
 
 void setup() {
   FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS);
   FastLED.setBrightness(BRIGHTNESS);
   FastLED.clear(true);
 
-  for(int i = 0; i <= NUM_LEDS; i++){
+  for(int i = 0; i <= NUM_LEDS - 1; i++){
     pinMode(BTN_PINS[i], INPUT_PULLUP);
+    coolDownLED[i] = -1;
+
+    bIsOpen[i] = false;
+    bIsAwait[i] = false;
+    bCanClose[i] = false;
   }
   
   Serial.begin(9600);
@@ -42,7 +56,8 @@ void setup() {
 
   lastTime = millis();
   srand(time(NULL));
-  openRandLED();
+  openRandLED(RED);
+  openRandLED(BLUE);
 }
 
 void loop() {
@@ -56,6 +71,10 @@ void loop() {
   for (byte i = 0; i < NUM_LEDS; i++) {
     bool pressed = (digitalRead(BTN_PINS[i]) == LOW);
     if(pressed){
+      awaitClose(i);
+    }
+
+    if(!pressed && bCanClose[i]){
       closeLED(i);
     }
   }
@@ -63,39 +82,57 @@ void loop() {
   FastLED.show();
 }
 
-void openRandLED(){
+void openRandLED(colorLED color){
   int randomLED = rand() % 8;
-  if(isLedOn(randomLED)){
+  if(isLedOn(randomLED) || coolDownLED[randomLED] > 0){
     Serial.print("LED Opened!!!!");
-    coolDown = 10;
+    coolDownRed += 10;
+    coolDownBlue += 10;
     return;
   }
 
+  int sleepTime = BASIC_SLEEP_TIME + rand() % SLEEP_TIME_RANGE;
+
+  if(color == RED){
+    leds[randomLED].setRGB(255, 0, 0);
+    coolDownRed = sleepTime;
+  }else if(color == BLUE){
+    leds[randomLED].setRGB(0, 0, 255);
+    coolDownBlue = sleepTime;
+  }
+
   bIsOpen[randomLED] = true;
-  leds[randomLED].setRGB(255, 0, 0);
   FastLED.show();
 
   Serial.print("LED Open:");
   Serial.print(randomLED);
   Serial.print("\n");
+}
 
-  int sleepTime = BASIC_SLEEP_TIME + rand() % SLEEP_TIME_RANGE;
-  coolDown = sleepTime;
+void awaitClose(int index){
+  if(isLedOn(index)){
+    coolDownLED[index] = AWAIT_TIME;
+    bIsOpen[index] = false;
+    bIsAwait[index] = true;
+    leds[index].setRGB(0, 255, 0);
+  }
 }
 
 void closeLED(int index){
   leds[index].setRGB(0, 0, 0);
-  bIsOpen[index] = false;
+  coolDownLED[index] = -1;
+  bIsAwait[index] = false;
+  bCanClose[index] = false;
 }
 
 void closeAllLED(){
-  for(int i = 0; i <= 7; i++){
+  for(int i = 0; i <= NUM_LEDS - 1; i++){
     closeLED(i);
   }
 }
 
 bool isLedOn(int index) {
-  return bIsOpen[index];
+  return coolDownLED[index] <= 0 && bIsOpen[index];
 }
 
 void checkCoolDown(){
@@ -103,9 +140,24 @@ void checkCoolDown(){
   deltaTime = now - lastTime;
   lastTime = now;
 
-  coolDown -= deltaTime;
+  coolDownRed -= deltaTime;
+  coolDownBlue -= deltaTime;
 
-  if(coolDown <= 0){
-    openRandLED();
+  for(int i = 0; i <= NUM_LEDS - 1; i++){
+    if(coolDownLED[i] > 0){
+      coolDownLED[i] -= deltaTime;
+    }
+
+    if(coolDownLED[i] <= 0 && bIsAwait[i]){
+      bCanClose[i] = true;
+    }
+  }
+
+  if(coolDownRed <= 0){
+    openRandLED(RED);
+  }
+
+  if(coolDownBlue <= 0){
+    openRandLED(BLUE);
   }
 }
