@@ -17,6 +17,7 @@ const byte BTN_PINS[NUM_LEDS] = {7, 6};
 const int BASIC_SLEEP_TIME = 3000;
 const int SLEEP_TIME_RANGE = 3000;
 const int AWAIT_TIME = 1000;
+const int FLASH_COOLDOWN = 100;
 
 CRGB leds[NUM_LEDS];
 bool bIsOpen[NUM_LEDS];
@@ -24,6 +25,8 @@ bool bIsAwait[NUM_LEDS];
 bool bCanClose[NUM_LEDS];
 bool bIsPressed = false;
 long coolDownLED[NUM_LEDS];
+long coolDownFlash[NUM_LEDS];
+float brightness[NUM_LEDS];
 
 long coolDownRed = 0;
 long coolDownBlue = 0;
@@ -84,7 +87,7 @@ void loop() {
 
 void openRandLED(colorLED color){
   int randomLED = rand() % 8;
-  if(isLedOn(randomLED) || coolDownLED[randomLED] > 0){
+  if(isLedOn(randomLED) || bIsAwait[randomLED]){
     Serial.print("LED Opened!!!!");
     coolDownRed += 10;
     coolDownBlue += 10;
@@ -119,10 +122,11 @@ void awaitClose(int index){
 }
 
 void closeLED(int index){
-  leds[index].setRGB(0, 0, 0);
-  coolDownLED[index] = -1;
   bIsAwait[index] = false;
   bCanClose[index] = false;
+  endFlash(index);
+  coolDownLED[index] = -1;
+  leds[index].setRGB(0, 0, 0);
 }
 
 void closeAllLED(){
@@ -148,8 +152,21 @@ void checkCoolDown(){
       coolDownLED[i] -= deltaTime;
     }
 
-    if(coolDownLED[i] <= 0 && bIsAwait[i]){
+    if(coolDownLED[i] <= 0 && bIsAwait[i] && !bCanClose[i]){
       bCanClose[i] = true;
+      startFlash(i);
+    }
+
+    if(bIsAwait[i] && bCanClose[i]){
+      coolDownFlash[i] -= deltaTime;
+      if(coolDownFlash[i] <= 0){
+        coolDownFlash[i] = FLASH_COOLDOWN;
+        if(leds[i].getAverageLight() <= 10){
+          leds[i].setRGB(0, 255, 0);
+        }else{
+          leds[i].setRGB(0, 0, 0);
+        }
+      }
     }
   }
 
@@ -160,4 +177,20 @@ void checkCoolDown(){
   if(coolDownBlue <= 0){
     openRandLED(BLUE);
   }
+}
+
+void startFlash(int index){
+  coolDownFlash[index] = FLASH_COOLDOWN;
+  leds[index].setRGB(0, 0, 0);
+}
+
+void endFlash(int index){
+  coolDownFlash[index] = 0;
+  if(bIsAwait[index]){
+    leds[index].setRGB(0, 255, 0);
+  }else{
+    leds[index].setRGB(0, 0, 0);
+  }
+  
+  //FastLED.setBrightness(BRIGHTNESS);
 }
