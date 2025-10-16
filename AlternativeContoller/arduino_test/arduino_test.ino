@@ -4,8 +4,6 @@
 #include <FastLED.h>
 
 
-//#define BUTTON_PIN 7
-
 #define LED_PIN     3
 #define NUM_LEDS    8
 #define BRIGHTNESS  120
@@ -18,6 +16,7 @@ const int BASIC_SLEEP_TIME = 3000;
 const int SLEEP_TIME_RANGE = 3000;
 const int AWAIT_TIME = 1000;
 const int FLASH_COOLDOWN = 100;
+const long WIN_TIME = 2*60*1000;
 
 CRGB leds[NUM_LEDS];
 bool bIsOpen[NUM_LEDS];
@@ -30,6 +29,7 @@ float brightness[NUM_LEDS];
 
 long coolDownRed = 0;
 long coolDownBlue = 0;
+unsigned long startTime = 0;
 unsigned long lastTime = 0;
 unsigned long deltaTime = 0;
 
@@ -37,6 +37,14 @@ enum colorLED{
   RED,
   BLUE
 };
+
+enum gameState{
+  WIN,
+  LOSE,
+  PLAYING
+};
+
+gameState currentGameState = PLAYING;
 
 void setup() {
   FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS);
@@ -53,6 +61,7 @@ void setup() {
   }
   
   Serial.begin(9600);
+  startTime = millis();
 
   fill_solid(leds, NUM_LEDS, CRGB(0, 0, 0));
   FastLED.show();
@@ -64,25 +73,23 @@ void setup() {
 }
 
 void loop() {
-  checkCoolDown();
-  /*
-  if (digitalRead(BUTTON_PIN) == LOW)
-  {
-    closeAllLED();
-  }*/
+  if(currentGameState == PLAYING){
+    checkCoolDown();
 
-  for (byte i = 0; i < NUM_LEDS; i++) {
-    bool pressed = (digitalRead(BTN_PINS[i]) == LOW);
-    if(pressed){
-      awaitClose(i);
-    }
+    for (byte i = 0; i < NUM_LEDS; i++) {
+      bool pressed = (digitalRead(BTN_PINS[i]) == LOW);
+      if(pressed){
+        awaitClose(i);
+      }
 
-    if(!pressed && bCanClose[i]){
-      closeLED(i);
+      if(!pressed && bCanClose[i]){
+        closeLED(i);
+      }
     }
+      
+    FastLED.show();
+
   }
-    
-  FastLED.show();
 }
 
 void openRandLED(colorLED color){
@@ -193,4 +200,15 @@ void endFlash(int index){
   }
   
   //FastLED.setBrightness(BRIGHTNESS);
+}
+
+bool checkWinState(){
+  unsigned long activeTime = millis() - startTime;
+  if(activeTime >= WIN_TIME){
+    win();
+  }
+}
+
+void win(){
+  return;
 }
