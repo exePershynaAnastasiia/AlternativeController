@@ -16,7 +16,9 @@ const int BASIC_SLEEP_TIME = 3000;
 const int SLEEP_TIME_RANGE = 3000;
 const int AWAIT_TIME = 1000;
 const int FLASH_COOLDOWN = 100;
+const int MAX_AWAIT_TIME = 10000;
 const long WIN_TIME = 2*60*1000;
+const bool bCAN_LOSE = true;
 
 CRGB leds[NUM_LEDS];
 bool bIsOpen[NUM_LEDS];
@@ -25,7 +27,7 @@ bool bCanClose[NUM_LEDS];
 bool bIsPressed = false;
 long coolDownLED[NUM_LEDS];
 long coolDownFlash[NUM_LEDS];
-float brightness[NUM_LEDS];
+long awaitTime[NUM_LEDS];
 
 long coolDownRed = 0;
 long coolDownBlue = 0;
@@ -54,6 +56,7 @@ void setup() {
   for(int i = 0; i <= NUM_LEDS - 1; i++){
     pinMode(BTN_PINS[i], INPUT_PULLUP);
     coolDownLED[i] = -1;
+    awaitTime[i] = MAX_AWAIT_TIME;
 
     bIsOpen[i] = false;
     bIsAwait[i] = false;
@@ -75,6 +78,7 @@ void setup() {
 void loop() {
   if(currentGameState == PLAYING){
     checkCoolDown();
+    checkWinState();
 
     for (byte i = 0; i < NUM_LEDS; i++) {
       bool pressed = (digitalRead(BTN_PINS[i]) == LOW);
@@ -85,15 +89,18 @@ void loop() {
       if(!pressed && bCanClose[i]){
         closeLED(i);
       }
-    }
-      
-    FastLED.show();
 
+      if(!pressed && bIsAwait[i] && !bCanClose[i] && bCAN_LOSE){
+        lose();
+      }
+    }
   }
+
+  FastLED.show();
 }
 
 void openRandLED(colorLED color){
-  int randomLED = rand() % 8;
+  int randomLED = rand() % NUM_LEDS;
   if(isLedOn(randomLED) || bIsAwait[randomLED]){
     Serial.print("LED Opened!!!!");
     coolDownRed += 10;
@@ -102,6 +109,7 @@ void openRandLED(colorLED color){
   }
 
   int sleepTime = BASIC_SLEEP_TIME + rand() % SLEEP_TIME_RANGE;
+  awaitTime[randomLED] = MAX_AWAIT_TIME;
 
   if(color == RED){
     leds[randomLED].setRGB(255, 0, 0);
@@ -155,6 +163,13 @@ void checkCoolDown(){
   coolDownBlue -= deltaTime;
 
   for(int i = 0; i <= NUM_LEDS - 1; i++){
+    if(bIsOpen[i] && !bIsAwait[i]){
+      awaitTime[i] -= deltaTime;
+      if(awaitTime[i] <= 0 && bCAN_LOSE){
+        lose();
+      }
+    }
+
     if(coolDownLED[i] > 0){
       coolDownLED[i] -= deltaTime;
     }
@@ -198,8 +213,6 @@ void endFlash(int index){
   }else{
     leds[index].setRGB(0, 0, 0);
   }
-  
-  //FastLED.setBrightness(BRIGHTNESS);
 }
 
 bool checkWinState(){
@@ -210,5 +223,21 @@ bool checkWinState(){
 }
 
 void win(){
+  currentGameState = WIN;
+  for(int i = 0; i <= NUM_LEDS - 1; i++){
+    leds[i].setRGB(0, 255, 0);
+  }
+  FastLED.show();
+  Serial.print("WIN!");
+  return;
+}
+
+void lose(){
+  currentGameState = LOSE;
+  for(int i = 0; i <= NUM_LEDS - 1; i++){
+    leds[i].setRGB(255, 0, 0);
+  }
+  FastLED.show();
+  Serial.print("LOSE!");
   return;
 }
