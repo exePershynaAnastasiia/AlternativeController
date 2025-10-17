@@ -4,13 +4,14 @@
 #include <FastLED.h>
 
 
-#define LED_PIN     3
-#define NUM_LEDS    8
+#define LED_PIN     12
+#define NUM_LEDS    6
 #define BRIGHTNESS  120
 #define LED_TYPE    WS2812B
 #define COLOR_ORDER GRB
 
-const byte BTN_PINS[NUM_LEDS] = {7, 6};
+const byte BTN_PINS[NUM_LEDS] = {0, 6, 2, 3, 4, 5};
+const int PORT_NUM = 1;
 
 const int BASIC_SLEEP_TIME = 3000;
 const int SLEEP_TIME_RANGE = 3000;
@@ -29,6 +30,8 @@ long coolDownLED[NUM_LEDS];
 long coolDownFlash[NUM_LEDS];
 long awaitTime[NUM_LEDS];
 
+int lastPortRed = -1;
+int lastPortBlue = -1;
 long coolDownRed = 0;
 long coolDownBlue = 0;
 unsigned long startTime = 0;
@@ -70,9 +73,15 @@ void setup() {
   FastLED.show();
 
   lastTime = millis();
-  srand(time(NULL));
-  openRandLED(RED);
-  openRandLED(BLUE);
+  //srand(time(NULL));
+  randomSeed(analogRead(A0));
+  //openRandLED(RED);
+  //openRandLED(BLUE);
+
+  int sleepTime = BASIC_SLEEP_TIME + random(0, SLEEP_TIME_RANGE);
+  coolDownRed = sleepTime;
+  sleepTime = BASIC_SLEEP_TIME + random(0, SLEEP_TIME_RANGE);
+  coolDownBlue = sleepTime;
 }
 
 void loop() {
@@ -100,23 +109,50 @@ void loop() {
 }
 
 void openRandLED(colorLED color){
-  int randomLED = rand() % NUM_LEDS;
+  //int randomLED = rand() % NUM_LEDS;
+  int randomPort = random(0, PORT_NUM);
+  if(PORT_NUM > 1){
+    if(color == RED){
+      if(randomPort == lastPortRed){
+        coolDownRed += 10;
+        return;
+      }
+    }else if(color == BLUE){
+      if(randomPort == lastPortBlue){
+        coolDownBlue += 10;
+        return;
+      }
+    }
+  }
+
+  int ledsEachPort = NUM_LEDS / PORT_NUM;
+  int randomLED = random(0, ledsEachPort) + randomPort * ledsEachPort;
   if(isLedOn(randomLED) || bIsAwait[randomLED]){
     Serial.print("LED Opened!!!!");
     coolDownRed += 10;
     coolDownBlue += 10;
     return;
   }
+  Serial.print("Port: ");
+  Serial.print(randomPort);
+  Serial.print(" LED: ");
+  Serial.print(randomLED);
+  Serial.print(" Not Opened!\n");
 
-  int sleepTime = BASIC_SLEEP_TIME + rand() % SLEEP_TIME_RANGE;
+  //int sleepTime = BASIC_SLEEP_TIME + rand() % SLEEP_TIME_RANGE;
+  int sleepTime = BASIC_SLEEP_TIME + random(0, SLEEP_TIME_RANGE);
   awaitTime[randomLED] = MAX_AWAIT_TIME;
 
   if(color == RED){
     leds[randomLED].setRGB(255, 0, 0);
     coolDownRed = sleepTime;
+    lastPortRed = randomPort;
+    Serial.print("RED ");
   }else if(color == BLUE){
     leds[randomLED].setRGB(0, 0, 255);
     coolDownBlue = sleepTime;
+    lastPortBlue = randomPort;
+    Serial.print("BLUE ");
   }
 
   bIsOpen[randomLED] = true;
