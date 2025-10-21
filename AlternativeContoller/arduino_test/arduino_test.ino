@@ -10,18 +10,18 @@
 #define LED_TYPE    WS2812B
 #define COLOR_ORDER GRB
 
-const byte BTN_PINS[NUM_LEDS] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, A1, A2, A3, A4, A5};
+const byte BTN_PINS[NUM_LEDS] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, A1, A2, A3, A4, A5};
 const int PORT_NUM = 3;
 
-const int BASIC_SLEEP_TIME = 3000;
-const int SLEEP_TIME_RANGE = 3000;
-const int AWAIT_TIME = 1000;
+const int BASIC_SLEEP_TIME = 6000;
+const int SLEEP_TIME_RANGE = 4000;
+const int AWAIT_TIME = 10000;
 const int FLASH_COOLDOWN = 100;
 const int MAX_AWAIT_TIME = 10000;
 const long WIN_TIME = 2*60*1000;
-const bool bCAN_LOSE = false;
+const bool bCAN_LOSE = true;
 
-CRGB leds[NUM_LEDS / PORT_NUM];
+CRGB leds[NUM_LEDS];
 
 //CRGB leds[NUM_LEDS];
 bool bIsOpen[NUM_LEDS];
@@ -76,7 +76,7 @@ void setup() {
 
   lastTime = millis();
   //srand(time(NULL));
-  randomSeed(analogRead(A0));
+  randomSeed(analogRead(A7));
   //openRandLED(RED);
   //openRandLED(BLUE);
 
@@ -87,6 +87,7 @@ void setup() {
 }
 
 void loop() {
+  
   if(currentGameState == PLAYING){
     checkCoolDown();
     checkWinState();
@@ -108,6 +109,7 @@ void loop() {
   }
 
   FastLED.show();
+  
 }
 
 void openRandLED(colorLED color){
@@ -212,6 +214,7 @@ void checkCoolDown(){
       coolDownLED[i] -= deltaTime;
     }
 
+    
     if(coolDownLED[i] <= 0 && bIsAwait[i] && !bCanClose[i]){
       bCanClose[i] = true;
       startFlash(i);
@@ -221,13 +224,14 @@ void checkCoolDown(){
       coolDownFlash[i] -= deltaTime;
       if(coolDownFlash[i] <= 0){
         coolDownFlash[i] = FLASH_COOLDOWN;
-        if(leds[i].getAverageLight() >= 250){
+        if(leds[i].getAverageLight() >= BRIGHTNESS / 2){
           leds[i].setRGB(0, 255, 0);
         }else{
           leds[i].setRGB(255, 255, 255);
         }
       }
     }
+
   }
 
   if(coolDownRed <= 0){
