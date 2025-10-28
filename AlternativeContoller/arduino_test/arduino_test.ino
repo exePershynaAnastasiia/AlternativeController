@@ -18,7 +18,7 @@ const int SLEEP_TIME_RANGE = 4000;
 const int AWAIT_TIME = 10000;
 const int FLASH_COOLDOWN = 100;
 const int MAX_AWAIT_TIME = 10000;
-const long WIN_TIME = 2*60*1000;
+const long WIN_TIME = 90000;
 const bool bCAN_LOSE = true;
 
 CRGB leds[NUM_LEDS];
